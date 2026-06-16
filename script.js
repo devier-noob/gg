@@ -23,10 +23,14 @@ const pinsLayer = document.getElementById("pinsLayer");
 const pinForm = document.getElementById("pinForm");
 const pinName = document.getElementById("pinName");
 const pinStatus = document.getElementById("pinStatus");
+const pinEvent = document.getElementById("pinEvent");
 const pinDescription = document.getElementById("pinDescription");
+const pinEventLogs = document.getElementById("pinEventLogs");
+
 
 const savePinBtn = document.getElementById("savePinBtn");
 const deletePinBtn = document.getElementById("deletePinBtn");
+const eventBtns = document.querySelectorAll(".eventBtn");
 
 // MODE
 
@@ -45,9 +49,10 @@ const selectBox = document.getElementById("selectBox");
 const clearHistory = document.getElementById("clearHistory");
 const clearPin = document.getElementById("clearPin");
 const cancelReportBtn = document.getElementById("cancelReportBtn");
-
+const pinContainerList = document.getElementById("pinContainerList");
+const eventDrop =document.getElementById("eventDrop");
 // date format
-
+const now =new Date();
 // =====================
 // STATE
 // =====================
@@ -60,7 +65,7 @@ let imageLocked = false;
 let pins = [];
 let selectedPin = null;
 
-let mode = "normal";
+let mode = null;
 
 let selectedPins = new Set();
 
@@ -71,7 +76,22 @@ let startSelectY = 0;
 let dragMoved = false;
 
 let activeReport = null;
+let tempEvent = [];
 
+function addActivityLog(action, details = "") {
+
+    const log = document.createElement("div");
+
+    log.className = "report-item";
+
+    log.innerHTML = `
+        <b>${action}</b><br>
+        ${details}<br>
+        <small>${new Date().toLocaleString()}</small>
+    `;
+
+    reportList.prepend(log);
+}
 // =====================
 // LOAD IMAGE
 // =====================
@@ -122,17 +142,27 @@ zoomOut.onclick = () => {
 // =====================
 // MODES
 // =====================
-
+eventDrop.onclick = () => {
+    pinEvent.classList.toggle("hidden");
+}
 
 normalModeBtn.onclick = () => {
-    mode = "normal";
-    imageStatus.textContent = "Add Pin";
+    if(imageLocked === true)return;
+        mode = "normal";
+        imageStatus.textContent = "Add Pin";
+        normalModeBtn.style.backgroundColor = "blue";
+        unlockImage.style.backgroundColor = "blue";
+        addActivityLog("Mode Changed", "Add Pin Mode");
+        
 };
+
+
 
 selectModeBtn.onclick = () => {
     mode = "select";
-
+    normalModeBtn.style.backgroundColor = "#1f2937";
     imageStatus.textContent = "Select Pin";
+    addActivityLog("Mode Changed", "Select Mode");
 };
 
 // =====================
@@ -141,18 +171,50 @@ selectModeBtn.onclick = () => {
 saveImageSetup.onclick = () => {
     localStorage.setItem("setup", JSON.stringify({ scale, posX, posY }));
     imageLocked = true;
+    unlockImage.style.backgroundColor = "#1f2937";
+    normalModeBtn.style.backgroundColor = "#1f2937";
+    saveImageSetup.style.backgroundColor = "blue";
     imageStatus.textContent = "Locked";
+    addActivityLog("Image Locked");
 };
 
 unlockImage.onclick = () => {
     imageLocked = false;
+    mode = null;
+
+    saveImageSetup.style.backgroundColor = "#1f2937";
+    unlockImage.style.backgroundColor = "blue";
     imageStatus.textContent = "Editing";
+    addActivityLog("Image Unlocked");
 };
 
 // =====================
 // CREATE PIN
 // =====================
+eventBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
 
+        if (!selectedPin) {
+            alert("Select a pin first.");
+            return;
+        }
+
+        if (!Array.isArray(selectedPin.event)) {
+            selectedPin.event = [];
+        }
+
+        selectedPin.event.push(btn.value);
+
+        savePins(); // save to DB
+
+        renderEventLogs(); // update UI immediately
+
+        addActivityLog(
+            "Event Updated",
+            `${selectedPin.id} → ${selectedPin.event.join(", ")}`
+        );
+    });
+});
 viewer.addEventListener("click", (e) => {
     if (e.target.classList.contains("pin")) return;
     if (!mapImage.src) return;
@@ -162,25 +224,34 @@ viewer.addEventListener("click", (e) => {
     const rect = mapImage.getBoundingClientRect();
     const now = new Date();
 
-        const id =
-            now.getFullYear() +
-            String(now.getMonth() + 1).padStart(2, "0") +
-            String(now.getDate()).padStart(2, "0") +
-            String(now.getHours()).padStart(2, "0") +
-            String(now.getMinutes()).padStart(2, "0") +
-            String(now.getSeconds()).padStart(2, "0") +
-            String(now.getMilliseconds()).padStart(3,"0");
+    const id =
+        now.getFullYear() +
+        String(now.getMonth() + 1).padStart(2, "0") +
+        String(now.getDate()).padStart(2, "0") +
+        String(now.getHours()).padStart(2, "0") +
+        String(now.getMinutes()).padStart(2, "0") +
+        String(now.getSeconds()).padStart(2, "0") +
+        String(now.getMilliseconds()).padStart(3, "0");
 
-    pins.push({
-        
+    const newPin = {
         id: id,
         x: (e.clientX - rect.left) / rect.width,
         y: (e.clientY - rect.top) / rect.height,
         name: "",
         status: "",
+        event: [],
         description: ""
-    });
+    };
 
+    pins.push(newPin);
+
+    // Activity Log
+    addActivityLog(
+        "Pin Created",
+        `ID: ${newPin.id}`
+    );
+
+    renderPinContainer();
     savePins();
     renderPins();
 });
@@ -240,6 +311,7 @@ document.addEventListener("pointerup", () => {
 // =====================
 function applySelectionBox() {
     
+    
     const box = selectBox.getBoundingClientRect();
 
     selectedPins.clear();
@@ -262,8 +334,9 @@ function applySelectionBox() {
         }
     });
 
-    updatePreview();
+    
     renderPins();
+
 }
 
 // =====================
@@ -271,6 +344,7 @@ function applySelectionBox() {
 // =====================
 function renderPins() {
     if (!mapImage.src || !mapImage.complete) return;
+
 
     pinsLayer.innerHTML = "";
 
@@ -297,7 +371,7 @@ function renderPins() {
                 if (selectedPins.has(pin.id)) selectedPins.delete(pin.id);
                 else selectedPins.add(pin.id);
 
-                updatePreview();
+                
                 renderPins();
             }
         };
@@ -334,6 +408,7 @@ function savePins() {
 fetch("load_pins.php")
 .then(res => res.json())
 .then(data => {
+    console.log("Loaded pins:", data);
     pins = data;
     renderPins();
     
@@ -354,24 +429,51 @@ fetch("load_pins.php")
 // PIN EDIT
 // =====================
 function openPin(pin) {
+    
 
     selectedPin = pin;
 
     pinName.value = pin.name;
     pinStatus.value = pin.status;
     pinDescription.value = pin.description;
+    if (!Array.isArray(selectedPin.event)) {
+
+        if (typeof selectedPin.event === "string" && selectedPin.event.trim() !== "") {
+            try {
+                selectedPin.event = JSON.parse(selectedPin.event);
+            } catch {
+                selectedPin.event = [];
+            }
+        } else {
+            selectedPin.event = [];
+        }
+    }
 
     pinForm.classList.remove("hidden");
+    pinEventLogs.classList.remove("hidden");
+    renderEventLogs();
 }
 
 savePinBtn.onclick = () => {
+    
+
     selectedPin.name = pinName.value;
     selectedPin.status = pinStatus.value;
+    selectedPin.event = selectedPin.event || "";
     selectedPin.description = pinDescription.value;
+    
+    addActivityLog(
+        "Pin Updated",
+        `ID: ${selectedPin.id}`
+    );
 
     savePins();
+    console.log(selectedPin);
+    console.log("Pin after save:", selectedPin);
     renderPins();
     pinForm.classList.add("hidden");
+    pinEventLogs.classList.add("hidden");
+    
 };
 
 deletePinBtn.onclick = () => {
@@ -399,13 +501,25 @@ deletePinBtn.onclick = () => {
 
         renderPins();
         pinForm.classList.add("hidden");
+        pinEventLogs.classList.add("hidden");
+        
+
+        const deletedId = selectedPin.id;
+
+        pins = pins.filter(p => p.id !== selectedPin.id);
 
         selectedPin = null;
+
+        addActivityLog(
+            "Pin Deleted",
+            `ID: ${deletedId}`
+        );
     })
     .catch(err => {
         console.error(err);
         alert("Failed to delete pin.");
     });
+
 
 };
 
@@ -414,81 +528,95 @@ deletePinBtn.onclick = () => {
 // =====================
 createReportBtn.onclick = () => {
     reportForm.classList.remove("hidden");
-    updatePreview();
+    renderPinContainer();
 };
 
-saveReportBtn.onclick = (e) => {
-    e.preventDefault(); // 
 
-    const title = reportTitle.value.trim();
-    const desc = reportDesc.value.trim();
-
-    const selected = pins.filter(p => selectedPins.has(p.id));
-
-    if (selected.length === 0) {
-        alert("No pins selected for report.");
-        return;
-    }
-
-    const report = {
-        id: Date.now(),
-        title: title || `Report ${Date.now()}`,
-        desc: desc || "No description",
-        pins: selected,
-        createdAt: new Date().toISOString()
-    };
-
-    let reports = JSON.parse(localStorage.getItem("reports") || "[]");
-    reports.push(report);
-
-    localStorage.setItem("reports", JSON.stringify(reports));
-
-    reportTitle.value = "";
-    reportDesc.value = "";
-    selectedPins.clear();
-
-    reportForm.classList.add("hidden");
-
-    updatePreview();
-    renderPins();
-    renderReports();
-};
 cancelReportBtn.onclick = () => {
-    reportTitle.value = "";
-    reportDesc.value = "";
-    selectedPins.clear();
     reportForm.classList.add("hidden");
-}
+};
 
 // =====================
 // REPORT UI
 // =====================
-function updatePreview() {
-    selectedPreview.innerHTML = pins
-        .filter(p => selectedPins.has(p.id))
-        .map(p => `• ${p.name || "Unnamed"} (${p.status || "No status"})`)
-        .join("<br>");
+function renderEventLogs() {
+    const container = document.getElementById("eventLogs");
+
+    container.innerHTML = "";
+
+    if (!selectedPin || !Array.isArray(selectedPin.event)) return;
+
+    selectedPin.event.forEach((ev, index) => {
+        const row = document.createElement("div");
+        row.style.display = "flex";
+        row.style.justifyContent = "space-between";
+        row.style.alignItems = "center";
+        row.style.padding = "5px 8px";
+        row.style.marginBottom = "5px";
+        row.style.background = "#f3f4f6";
+        row.style.borderRadius = "6px";
+
+
+        const text = document.createElement("span");
+        text.textContent = ev;
+
+        const removeBtn = document.createElement("button");
+        removeBtn.textContent = "✖";
+        removeBtn.style.background = "#f3f4f6";
+        removeBtn.style.color = "#1f2937";
+        removeBtn.style.padding = "2px 6px";
+        removeBtn.style.borderRadius = "50%";
+
+        removeBtn.onclick = () => {
+            selectedPin.event.splice(index, 1); // remove from array
+            savePins(); // update DB/localStorage
+            renderEventLogs(); // refresh UI
+
+            addActivityLog(
+                "Event Removed",
+                `${ev} removed from Pin ${selectedPin.id}`
+            );
+        };
+
+        row.appendChild(text);
+        row.appendChild(removeBtn);
+
+        container.appendChild(row);
+    });
 }
 
-function renderReports() {
-    let reports = JSON.parse(localStorage.getItem("reports") || "[]");
+function renderPinContainer() {
+    pinContainerList.innerHTML = "";
+    now.getDate();
 
-    reportList.innerHTML = "";
 
-    if (reports.length === 0) {
-        reportList.innerHTML = "<p>No reports yet.</p>";
+    if (pins.length === 0) {
+        pinContainerList.innerHTML = "<p>No pins created.</p>";
         return;
     }
 
-    reports.forEach(r => {
+    pins.forEach(pin => {
         const div = document.createElement("div");
         div.className = "report-item";
 
-        div.innerHTML = `<b>${r.title}</b><br>${r.desc}<br>Pins: ${r.pins.length}`;
+        div.innerHTML = `
+            <b>${pin.name || "Unnamed Pin"}</b><br>
+            Status: ${pin.status || "No status"}<br>
+            <small>ID: ${pin.id}</small>
 
-        div.onclick = () => openReport(r);
 
-        reportList.appendChild(div);
+           
+            
+        `;
+        // <small>Date: ${pin.Date()}</small>
+        
+
+        div.onclick = () => {
+            openPin(pin); // ✅ KEEP YOUR EXISTING LOGIC
+            reportForm.classList.add("hidden"); // close panel after click
+        };
+        pinContainerList.appendChild(div);
+        
     });
 }
 
@@ -498,9 +626,9 @@ function openReport(report) {
     selectedPins.clear();
     report.pins.forEach(p => selectedPins.add(p.id));
 
-    updatePreview();
+    
     renderPins();
-    renderReports();
+    renderPinContainer();
 }
 
 // =====================
@@ -513,7 +641,7 @@ function syncView() {
     requestAnimationFrame(renderPins);
 }
 clearPin.addEventListener("click", () => {
-    if (!confirm("Clear all pins from database?")) return;
+    if (!confirm("Clear all pins and reports from database?")) return;
 
     fetch("clear_pins.php", {
         method: "POST"
@@ -521,10 +649,22 @@ clearPin.addEventListener("click", () => {
     .then(res => res.text())
     .then(data => {
         console.log(data);
-        alert("Pins cleared from database!");
 
-        // optional: also clear UI
-        location.reload();
+        // ✅ CLEAR LOCAL PINS + REPORTS
+        localStorage.removeItem("pins");
+        localStorage.removeItem("reports");
+
+        pins = [];
+        selectedPins.clear();
+
+        renderPins();
+        renderPinContainer();
+
+        addActivityLog("All Pins Deleted");
+
+        alert("Pins and reports cleared!");
+        pinForm.classList.add("hidden");
+        
     })
     .catch(err => {
         console.error(err);
@@ -535,9 +675,10 @@ clearHistory.onclick = () => {
     
     // Remove from localStorage
     localStorage.removeItem("reports");
+    reportList.innerHTML = "";
 
     // Refresh UI
-    renderReports();
+    renderPinContainer();
 
     
 };
@@ -545,7 +686,7 @@ clearHistory.onclick = () => {
 // =====================
 // INIT
 // =====================
-renderReports();
+renderPinContainer();
 renderPins();
 
 }); // END DOM READY

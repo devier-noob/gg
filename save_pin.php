@@ -17,18 +17,19 @@ $conn->query("TRUNCATE TABLE pins");
 
 foreach ($pins as $pin) {
 
-    $id = (int)$pin["id"];
+    $id = $pin["id"];
     $name = $conn->real_escape_string($pin["name"] ?? "");
     $status = $conn->real_escape_string($pin["status"] ?? "");
+    $event = json_encode($pin["event"] ?? []);
     $description = $conn->real_escape_string($pin["description"] ?? "");
     $x = (float)$pin["x"];
     $y = (float)$pin["y"];
 
     $sql = "
         INSERT INTO pins
-        (id, name, status, description, x, y)
+        (id, name, status, event, description, x, y)
         VALUES
-        ($id, '$name', '$status', '$description', $x, $y)
+        ('$id', '$name', '$status', '$event', '$description', $x, $y)
     ";
 
     $conn->query($sql);

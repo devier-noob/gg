@@ -8,11 +8,15 @@
 body{
     background:#eef2f7;
     color:#111;
+    
+
 }
 
 /* HEADER */
 header{
+    
     background:#111827;
+    width: 100%;
     color:white;
     padding:12px 16px;
     display:flex;
@@ -21,37 +25,53 @@ header{
     font-weight:600;
     letter-spacing:0.3px;
 
+
 }
 
 /* MAIN LAYOUT */
 .main{
-    height:90vh;
-    padding:12px;
-    display:flex;
-    gap:12px;
-    align-items:flex-start;
+    display: grid;
+    grid-template-areas: 'viewer-panel''forms';   
+    gap: 10px;
 }
+
 
 /* LEFT PANEL */
 .viewer-panel{
     flex:1;
-    display:flex;
-    flex-direction:column;
+    
+    grid-area: viewer-panel;
+    
     gap:10px;
 }
+.forms{
+    grid-area: forms;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-right: 10px;
+}
+@media (min-width: 1024px){
+    .viewer-panel {grid-area: 1 / span 1;}
+    .forms{grid-area: 1 / span 2;  }
+    
+}
+
+
 
 /* TOOLBAR */
 .toolbar{
-    position: absolute;
-    top: 52px;
-    display:flex;
-    flex-wrap:wrap;
+    position: relative;
+    
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap:8px;
     padding:10px;
     background:white;
     border:1px solid #ddd;
     border-radius:10px;
-    z-index: 2000;
+    
 }
 
 
@@ -93,18 +113,40 @@ textarea{
     outline:none;
 }
 
+
 /* VIEWER */
 #viewer{
     position:relative;
-    top: 95px;
+    
     width:100%;
-    height:100%;
+    height:auto;
+    max-width: auto;
+    max-height: 1600px;
     background:#fff;
-    overflow:hidden;
+    
     border:1px solid #cbd5e1;
     border-radius:10px;
-    touch-action:none;
+    touch-action:pan-x pinch-zoom;
+    overflow-y:auto;
+    overflow-x:auto;
+    z-index: 1000;
 }
+.zoom{
+    position: relative;
+    
+
+    z-index: 1001;
+    top: 40px;
+    right: 10px;
+    gap: 10px;
+    display: flex;
+    justify-content: right;
+    min-width: auto;
+
+    flex-direction: row;
+
+}
+
 
 /* IMAGE */
 #mapImage{
@@ -115,8 +157,10 @@ textarea{
     display:block;
     max-width:none;
     max-height:none;
-    width:auto;
+    
+    width:100%;
     height:auto;
+
 }
 
 /* PIN LAYER */
@@ -151,56 +195,81 @@ textarea{
 
 /* PIN FORM */
 #pinForm{
-    position: fixed;
-    top:100px;
-    left:1000px;
+    
+    
     background:white;
-    padding:14px;
-    width:240px;
-    box-shadow:0 10px 25px rgba(0,0,0,0.);
+    padding:20px;
+    width: 400px;
+    box-shadow:0 10px 25px rgba(0,0,0,0.2);
     border-radius:10px;
-    z-index:1000;
+    min-width: 200px;
     
     display:flex;
+    justify-content: right;
+    grid-area: pinForm;
     flex-direction:column;
     gap:8px;
+}
+
+#pinEvent{
+    margin: 5px;
+    gap: 8px;
+    width: auto;
+    height: auto;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    
+       
+}
+#pinEvent .eventBtn{
+    min-width: 100px;
+}
+
+#pinEventLogs{
+    background:white;
+    padding:10px;   
+    border-radius:10px; 
+    height: 100px;
+    max-height:190px ;
+    overflow-y: auto;
 }
 
 /* REPORT FORM */
 #reportForm{
     position:fixed;
     right:20px;
-    bottom:20px;
+    bottom: 50px;
     width:260px;
     background:white;
     padding:14px;
-    border-radius:10px;
+    height: 50vh;
     box-shadow:0 10px 25px rgba(0,0,0,0.2);
-    z-index:999;
-
+    overflow-x: auto;
+    overflow-y:auto ;
     display:flex;
     flex-direction:column;
     gap:8px;
+    z-index: 1000;
 }
 
 /* REPORT PANEL */
 #reportPanel{
-    position: fixed;
-
-    
-    right: 10px;
-    width:280px;
-    min-width:280px;
+    grid-area: reportPanel;
+    position: relative;
+    width:auto;
+    top: 10px;
     background:white;
     padding:12px;
     border:1px solid #ddd;
-    border-radius:10px;
-    height:40vh;
+    border-radius: 10px;
+    box-shadow:0 10px 25px rgba(0,0,0,0.2);
+    height: 30vh;
+    min-width: 400px;
+    
     overflow-y:auto;
     overflow-x:hidden;
-    z-index: 2000;
     
-
     
 }
 
@@ -211,18 +280,15 @@ textarea{
     background:#f3f4f6;
     border-radius:8px;
     cursor:pointer;
-    transition:0.15s;
-    
-}
 
+    transition:0.15s;
+}
 .report-item.active{
     border:2px solid #3b82f6;
 }
-
 .report-item:hover{
     background:#e5e7eb;
 }
-
 .hidden{
     display:none !important;
 }
@@ -237,7 +303,6 @@ textarea{
     padding:6px;
     border-radius:6px;
 }
-
 /* SELECTION BOX */
 #selectBox{
     position:absolute;
@@ -246,11 +311,9 @@ textarea{
     display:none;
     pointer-events:none;
 }
-
 /* =========================
    REPORT VIEWER
 ========================= */
-
 #reportViewer{
     position:fixed;
     top:50%;
@@ -258,13 +321,10 @@ textarea{
     transform:translate(-50%, -50%);
     width:min(1000px, 95vw);
     height:min(90vh, 900px);
-
     background:white;
     border-radius:12px;
     box-shadow:0 15px 40px rgba(0,0,0,0.3);
-
     z-index:5000;
-
     display:flex;
     flex-direction:column;
     overflow:hidden;
@@ -273,27 +333,21 @@ textarea{
 .report-viewer-header{
     background:#111827;
     color:white;
-
     padding:12px 16px;
-
     display:flex;
     justify-content:space-between;
     align-items:center;
 }
-
 .report-viewer-content{
     flex:1;
     overflow:auto;
     padding:16px;
-    
 }
-
 #viewerDescription{
     background:#f3f4f6;
     padding:10px;
     border-radius:8px;
 }
-
 #viewerPins{
     background:#f9fafb;
     padding:10px;
@@ -305,11 +359,9 @@ textarea{
     position:relative;
     width:100%;
     margin-top:15px;
-
     border:1px solid #d1d5db;
     border-radius:10px;
     overflow:hidden;
-
     background:white;
 }
 
